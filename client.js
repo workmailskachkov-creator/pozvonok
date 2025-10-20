@@ -190,6 +190,21 @@ function hideNameModal() {
     nameModal.classList.remove('show');
 }
 
+function showConferenceUI() {
+    // Показываем элементы конференции
+    const joinControls = document.getElementById('joinControls');
+    const conferenceControls = document.querySelector('.conference-controls');
+    const participantsBlock = document.querySelector('.participants-block');
+    const inviteBlock = document.querySelector('.invite-block');
+    
+    if (joinControls) joinControls.style.display = 'none';
+    if (conferenceControls) conferenceControls.style.display = 'flex';
+    if (participantsBlock) participantsBlock.style.display = 'block';
+    if (inviteBlock) inviteBlock.style.display = 'block';
+    
+    console.log('Conference UI показан');
+}
+
 function submitName() {
     const name = nameInput.value.trim();
     if (!name) {
@@ -1048,6 +1063,44 @@ window.addEventListener('DOMContentLoaded', () => {
             console.log('Получено сообщение в iframe:', data.type);
             
             switch(data.type) {
+                case 'set-name-and-join':
+                    console.log('Получена команда set-name-and-join:', data);
+                    
+                    // Устанавливаем имя
+                    if (data.name) {
+                        const myUserEl = document.querySelector('.my-user .user-name');
+                        if (myUserEl) {
+                            myUserEl.textContent = data.name;
+                        }
+                        const myVideoNameEl = document.querySelector('.my-video .video-name');
+                        if (myVideoNameEl) {
+                            myVideoNameEl.textContent = data.name;
+                        }
+                        const myUserNameEl = document.getElementById('myUserName');
+                        if (myUserNameEl) {
+                            myUserNameEl.textContent = data.name;
+                        }
+                    }
+                    
+                    // Если есть roomId, присоединяемся к комнате
+                    if (data.roomId) {
+                        console.log('Присоединяемся к комнате:', data.roomId);
+                        sendMessage({
+                            type: 'join-room',
+                            roomId: data.roomId
+                        });
+                    } else {
+                        console.log('Создаем новую комнату...');
+                        sendMessage({
+                            type: 'create-room'
+                        });
+                    }
+                    
+                    // Скрываем модал имени и показываем конференцию
+                    hideNameModal();
+                    showConferenceUI();
+                    break;
+                    
                 case 'toggle-video':
                     console.log('Вызываем toggleVideo из сообщения');
                     toggleVideo();

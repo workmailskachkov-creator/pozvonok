@@ -193,6 +193,7 @@
                 console.log('Room ID из URL:', roomId);
             }
             currentRoomId = roomId;
+            console.log('currentRoomId установлен:', currentRoomId);
             
             // Формируем URL для iframe
             let frameUrl = `${window.location.origin}/index.html?`;
@@ -210,6 +211,17 @@
             
             // Настраиваем кнопки Telegram
             setupTelegramButtons();
+            
+            // Если roomId пустой, ждем создания комнаты от iframe
+            if (!roomId) {
+                console.log('Ждем создания комнаты от iframe...');
+                setTimeout(() => {
+                    if (!currentRoomId) {
+                        console.error('Комната не была создана за 5 секунд!');
+                        tg.showAlert('Ошибка создания комнаты. Попробуйте еще раз.');
+                    }
+                }, 5000);
+            }
         }
         
         // СНАЧАЛА добавляем обработчик кнопки
