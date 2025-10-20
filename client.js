@@ -543,8 +543,11 @@ function updateMuteButton() {
 }
 
 async function toggleVideo() {
+    console.log('toggleVideo вызвана! isVideoEnabled:', isVideoEnabled);
+    
     if (!isVideoEnabled) {
         try {
+            console.log('Запрашиваем доступ к камере...');
             localVideoStream = await navigator.mediaDevices.getUserMedia({ 
                 video: {
                     width: { ideal: 1920 },
@@ -553,6 +556,7 @@ async function toggleVideo() {
                     facingMode: 'user'
                 }
             });
+            console.log('Доступ к камере получен!', localVideoStream);
             
             isVideoEnabled = true;
             
@@ -1041,9 +1045,11 @@ window.addEventListener('DOMContentLoaded', () => {
         // Слушаем команды от родительского окна (Telegram)
         window.addEventListener('message', (event) => {
             const data = event.data;
+            console.log('Получено сообщение в iframe:', data.type);
             
             switch(data.type) {
                 case 'toggle-video':
+                    console.log('Вызываем toggleVideo из сообщения');
                     toggleVideo();
                     break;
                 case 'toggle-mute':
