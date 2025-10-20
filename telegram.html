@@ -215,20 +215,22 @@
             setupTelegramButtons();
         }
         
-        // Добавляем обработчик кнопки присоединиться
-        tgJoinBtn.addEventListener('click', () => {
+        // СНАЧАЛА добавляем обработчик кнопки
+        tgJoinBtn.addEventListener('click', function() {
             const userName = tgNameInput.value.trim();
+            console.log('Кнопка нажата, имя:', userName);
+            
             if (!userName) {
                 tg.showAlert('Введите имя!');
                 return;
             }
             
-            console.log('Присоединение с именем:', userName);
             joinWithName(userName);
         });
         
-        // Проверяем сохраненное имя при загрузке
+        // ПОТОМ проверяем сохраненное имя при загрузке
         const savedName = localStorage.getItem('pozvonok_username');
+        console.log('savedName при загрузке:', savedName);
         
         if (savedName) {
             console.log('Найдено сохраненное имя:', savedName);
@@ -237,10 +239,11 @@
             
             // Задержка для инициализации Telegram SDK
             setTimeout(() => {
+                console.log('Автовход с именем:', savedName);
                 joinWithName(savedName);
-            }, 500);
+            }, 800);
         } else {
-            console.log('Сохраненного имени нет, показываем форму');
+            console.log('Сохраненного имени нет, ждем ввода');
         }
         
         let micEnabled = true;
