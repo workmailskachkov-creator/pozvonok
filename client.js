@@ -221,7 +221,9 @@ function submitName() {
     }
     
     hideNameModal();
-    joinBtn.disabled = false; // Разблокируем кнопку присоединиться
+    
+    // АВТОМАТИЧЕСКИ присоединяемся к конференции
+    proceedToJoin();
 }
 
 async function proceedToJoin() {
@@ -240,8 +242,11 @@ async function proceedToJoin() {
         const urlParams = new URLSearchParams(window.location.search);
         const isTelegram = urlParams.get('tg') === '1';
         
-        // Скрываем кнопку присоединиться, показываем управление и участников
-        joinBtn.style.display = 'none';
+        // Скрываем контролы присоединения
+        const joinControls = document.getElementById('joinControls');
+        if (joinControls) {
+            joinControls.style.display = 'none';
+        }
         
         // В Telegram режиме скрываем кнопки управления и invite блок
         if (isTelegram) {
@@ -486,11 +491,25 @@ function leaveConference() {
     
     updateStatus('connected', 'Подключено к серверу');
     
-    // Показываем кнопку присоединиться, скрываем управление и участников
-    joinBtn.style.display = 'block';
+    // Скрываем все элементы конференции
+    const joinControls = document.getElementById('joinControls');
+    if (joinControls) {
+        joinControls.style.display = 'none';
+    }
     conferenceControls.style.display = 'none';
     participantsBlock.style.display = 'none';
     inviteBlock.style.display = 'none';
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const isTelegram = urlParams.get('tg') === '1';
+    
+    if (!isTelegram) {
+        // В обычном вебе показываем модал для нового входа
+        const savedName = localStorage.getItem('pozvonok_username');
+        if (!savedName) {
+            showNameModal();
+        }
+    }
     
     isMuted = false;
     isVideoEnabled = false;
@@ -984,10 +1003,30 @@ window.addEventListener('DOMContentLoaded', () => {
         // Обычный веб - проверяем сохраненное имя
         const savedName = localStorage.getItem('pozvonok_username');
         if (savedName) {
-            nameInput.value = savedName;
+            // Имя уже есть - автоматически присоединяемся
+            customUserName = savedName;
+            myUserName = savedName;
+            
+            const myVideoNameEl = document.getElementById('myVideoName');
+            if (myVideoNameEl) {
+                myVideoNameEl.textContent = savedName;
+            }
+            
+            const myUserEl = document.getElementById('myUserName');
+            if (myUserEl) {
+                myUserEl.textContent = savedName;
+            }
+            
+            // Автоматически входим в конференцию
+            setTimeout(() => {
+                proceedToJoin();
+            }, 500);
+        } else {
+            // Имени нет - показываем модал
+            nameInput.value = '';
+            showNameModal();
         }
         
-        showNameModal();
         joinBtn.disabled = true;
     }
     

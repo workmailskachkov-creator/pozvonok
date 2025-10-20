@@ -116,13 +116,7 @@
             tgNameInput.value = defaultName;
         }
         
-        tgJoinBtn.addEventListener('click', () => {
-            const userName = tgNameInput.value.trim();
-            if (!userName) {
-                tg.showAlert('Введите имя!');
-                return;
-            }
-            
+        function joinWithName(userName) {
             // Сохраняем имя для последующих использований
             localStorage.setItem('pozvonok_username', userName);
             
@@ -153,7 +147,29 @@
             
             // Настраиваем кнопки Telegram
             setupTelegramButtons();
+        }
+        
+        // Проверяем сохраненное имя при загрузке
+        const savedName = localStorage.getItem('pozvonok_username');
+        
+        if (savedName) {
+            // Имя уже есть - автоматически присоединяемся
+            tgNameInput.value = savedName;
             
+            // Задержка для инициализации Telegram SDK
+            setTimeout(() => {
+                joinWithName(savedName);
+            }, 300);
+        }
+        
+        tgJoinBtn.addEventListener('click', () => {
+            const userName = tgNameInput.value.trim();
+            if (!userName) {
+                tg.showAlert('Введите имя!');
+                return;
+            }
+            
+            joinWithName(userName);
         });
         
         function setupTelegramButtons() {
