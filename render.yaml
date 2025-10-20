@@ -3,7 +3,7 @@ services:
     name: pozvonok
     env: node
     buildCommand: npm install
-    startCommand: node server.js
+    startCommand: node bot.js
     envVars:
       - key: NODE_ENV
         value: production
