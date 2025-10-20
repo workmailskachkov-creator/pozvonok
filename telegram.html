@@ -305,6 +305,7 @@
             
             // Пригласить
             document.getElementById('btnInvite').addEventListener('click', () => {
+                console.log('Кнопка Пригласить нажата! inviteLink:', inviteLink, 'currentRoomId:', currentRoomId);
                 inviteContacts();
                 tg.HapticFeedback.impactOccurred('light');
             });
@@ -345,30 +346,24 @@
         });
         
         async function inviteContacts() {
+            console.log('inviteContacts вызвана');
+            
             if (!inviteLink) {
+                console.error('inviteLink не установлена!');
                 tg.showAlert('Пригласительная ссылка еще не готова. Подождите немного.');
                 return;
             }
             
-            // Загружаем список уже приглашенных пользователей из CloudStorage
-            tg.CloudStorage.getItems(['invited_users_' + currentRoomId], (error, values) => {
-                let invitedUsers = [];
-                
-                if (!error && values['invited_users_' + currentRoomId]) {
-                    try {
-                        invitedUsers = JSON.parse(values['invited_users_' + currentRoomId]);
-                    } catch (e) {
-                        invitedUsers = [];
-                    }
-                }
-                
-                // Показываем список или сразу шеринг
-                if (invitedUsers.length > 0) {
-                    showInviteOptions(invitedUsers);
-                } else {
-                    openContactPicker();
-                }
-            });
+            console.log('Открываем выбор контактов напрямую');
+            
+            // Упрощенная версия - сразу открываем шеринг контактов
+            try {
+                tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent('🎙️ Присоединяйтесь к видеоконференции в Pozvonok!')}`);
+                console.log('Открыли шеринг');
+            } catch (error) {
+                console.error('Ошибка открытия шеринга:', error);
+                tg.showAlert('Ошибка: ' + error.message);
+            }
         }
         
         function showInviteOptions(invitedUsers) {
