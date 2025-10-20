@@ -1,14 +1,20 @@
 const express = require('express');
-const WebSocket = require('ws');
 const http = require('http');
+const WebSocket = require('ws');
 const path = require('path');
+
+const BOT_TOKEN = '8143486909:AAGU7BLjinOl-6auFF6w3ZRKCRclL6qgzTA';
+const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-app.use(express.static('.'));
 app.use(express.json());
+app.use(express.static('.'));
+
+// Хранилище приглашенных пользователей (в продакшене использовать БД)
+const invitedUsers = new Map(); // roomId -> Set of {userId, userName, chatId}
 
 // Serve manifest.json и sw.js
 app.get('/manifest.json', (req, res) => {
@@ -24,8 +30,158 @@ app.get('/telegram', (req, res) => {
     res.sendFile(__dirname + '/telegram.html');
 });
 
+// API для получения списка приглашенных
+app.get('/api/invited/:roomId', (req, res) => {
+    const roomId = req.params.roomId;
+    const invited = invitedUsers.get(roomId) || [];
+    res.json({ invited: Array.from(invited) });
+});
+
+// API для отправки приглашения через бота
+app.post('/api/invite', async (req, res) => {
+    const { userId, userName, roomId, inviteLink } = req.body;
+    
+    try {
+        // Формируем сообщение с кнопкой
+        const message = `🎙️ ${userName} приглашает вас в видеоконференцию Pozvonok!\n\nНажмите кнопку ниже для присоединения:`;
+        
+        const keyboard = {
+            inline_keyboard: [[
+                { text: '🎥 Присоединиться к конференции', url: inviteLink }
+            ]]
+        };
+        
+        // Отправляем сообщение пользователю
+        const response = await fetch(`${TELEGRAM_API}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: userId,
+                text: message,
+                reply_markup: keyboard
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.ok) {
+            // Сохраняем приглашенного пользователя
+            if (!invitedUsers.has(roomId)) {
+                invitedUsers.set(roomId, new Set());
+            }
+            invitedUsers.get(roomId).add({ userId, userName, timestamp: Date.now() });
+            
+            res.json({ success: true });
+        } else {
+            res.json({ success: false, error: result.description });
+        }
+    } catch (error) {
+        console.error('Ошибка отправки приглашения:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// Webhook для обработки сообщений бота
+app.post(`/webhook/${BOT_TOKEN}`, async (req, res) => {
+    const update = req.body;
+    
+    if (update.message) {
+        const chatId = update.message.chat.id;
+        const text = update.message.text;
+        
+        if (text === '/start') {
+            console.log('Получена команда /start от:', chatId);
+            
+            // Приветственное сообщение
+            const welcomeMessage = `🎙️ Добро пожаловать в Pozvonok!
+
+Премиум платформа для видео и аудио конференций.
+
+📞 Сейчас я отправлю вам специальную мелодию звонка для уведомлений от бота.
+
+⚡ Это позволит отличать обычные сообщения в Telegram от приглашений в конференцию!`;
+            
+            const welcomeRes = await fetch(`${TELEGRAM_API}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    text: welcomeMessage
+                })
+            });
+            
+            console.log('Приветственное сообщение отправлено:', await welcomeRes.json());
+            
+            // Отправляем мелодию сразу
+            setTimeout(async () => {
+                const instructionText = `🔔 КАК УСТАНОВИТЬ МЕЛОДИЮ НА УВЕДОМЛЕНИЯ ОТ ЭТОГО БОТА:
+
+📱 НА ANDROID:
+1️⃣ Нажмите на аудиофайл выше и прослушайте
+2️⃣ Нажмите три точки (⋮) в углу
+3️⃣ Выберите "Использовать как рингтон"
+4️⃣ Выберите "Для уведомлений"
+
+📱 НА IPHONE:
+1️⃣ Нажмите на аудиофайл и прослушайте
+2️⃣ Нажмите "Поделиться" → "Сохранить в Файлы"
+3️⃣ Настройки Telegram → Уведомления и звуки
+4️⃣ Звук уведомлений → выберите сохраненный файл
+
+💡 ЗАЧЕМ ЭТО НУЖНО:
+Когда вас пригласят в видеоконференцию, вы услышите эту уникальную мелодию вместо обычного "дзинь" и сразу поймете, что это ЗВОНОК, а не просто сообщение!
+
+✅ После установки откройте Pozvonok ↓`;
+                
+                console.log('Отправляем аудио файл...');
+                
+                // Отправляем аудио файл через URL (правильный метод)
+                const audioRes = await fetch(`${TELEGRAM_API}/sendAudio`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chat_id: chatId,
+                        audio: 'https://pozvonok.onrender.com/ringtone.mp3',
+                        caption: instructionText,
+                        title: 'Мелодия звонка Pozvonok',
+                        performer: 'Pozvonok'
+                    })
+                });
+                
+                const audioResult = await audioRes.json();
+                console.log('Результат отправки аудио:', audioResult);
+                
+                // Отправляем кнопку открытия Mini App
+                const keyboard = {
+                    inline_keyboard: [
+                        [{ text: '▶️ Открыть Pozvonok', web_app: { url: 'https://pozvonok.onrender.com/telegram' } }]
+                    ]
+                };
+                
+                console.log('Отправляем кнопку открытия...');
+                
+                const btnRes = await fetch(`${TELEGRAM_API}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chat_id: chatId,
+                        text: '👇 Нажмите кнопку ниже для запуска:',
+                        reply_markup: keyboard
+                    })
+                });
+                
+                console.log('Кнопка отправлена:', await btnRes.json());
+            }, 1000);
+        }
+    }
+    
+    
+    res.sendStatus(200);
+});
+
+// WebSocket для конференций (из server.js)
 const clients = new Map();
-const rooms = new Map(); // roomId -> Set of clientIds
+const rooms = new Map();
 const userNames = [
     'Альфа', 'Браво', 'Чарли', 'Дельта', 'Эхо', 'Фокстрот', 'Гольф', 'Хотел',
     'Индия', 'Джульетта', 'Кило', 'Лима', 'Майк', 'Новембр', 'Оскар', 'Папа',
@@ -70,12 +226,10 @@ wss.on('connection', (ws) => {
                 case 'offer':
                 case 'answer':
                 case 'ice-candidate':
-                    // Отправляем конкретному получателю в той же комнате
                     if (data.to) {
                         const sender = clients.get(clientId);
                         const recipient = clients.get(data.to);
                         
-                        // Проверяем, что оба в одной комнате
                         if (sender && recipient && 
                             sender.roomId === recipient.roomId &&
                             recipient.ws.readyState === WebSocket.OPEN) {
@@ -84,7 +238,6 @@ wss.on('connection', (ws) => {
                     }
                     break;
                 case 'audio-level':
-                    // Транслируем уровень звука всем в комнате
                     const audioClient = clients.get(clientId);
                     if (audioClient && audioClient.roomId) {
                         broadcastToRoom(audioClient.roomId, {
@@ -95,7 +248,6 @@ wss.on('connection', (ws) => {
                     }
                     break;
                 case 'chat-message':
-                    // Транслируем сообщение чата всем в комнате
                     const userData = clients.get(clientId);
                     const displayName = userData?.customName || userData?.userName || 'Неизвестный';
                     if (userData && userData.roomId) {
@@ -110,14 +262,12 @@ wss.on('connection', (ws) => {
                     }
                     break;
                 case 'set-custom-name':
-                    // Устанавливаем кастомное имя пользователя
                     const client = clients.get(clientId);
                     if (client && data.customName) {
                         const customName = sanitizeName(data.customName);
                         client.customName = customName;
                         console.log(`${client.userName} сменил имя на ${customName}`);
                         
-                        // Уведомляем всех в комнате об обновлении имени
                         broadcastToRoom(client.roomId, {
                             type: 'name-updated',
                             userId: clientId,
@@ -126,7 +276,6 @@ wss.on('connection', (ws) => {
                     }
                     break;
                 case 'create-room':
-                    // Создаем новую комнату
                     const newRoomId = generateRoomId();
                     const creator = clients.get(clientId);
                     if (creator) {
@@ -144,10 +293,8 @@ wss.on('connection', (ws) => {
                             roomId: newRoomId
                         }));
                         
-                        // Отправляем список пользователей в комнате
                         sendRoomUserList(clientId, newRoomId);
                         
-                        // Уведомляем других в комнате
                         broadcastToRoom(newRoomId, {
                             type: 'user-joined',
                             userId: clientId,
@@ -157,7 +304,6 @@ wss.on('connection', (ws) => {
                     }
                     break;
                 case 'join-room':
-                    // Присоединяемся к существующей комнате
                     if (data.roomId) {
                         const joiner = clients.get(clientId);
                         if (joiner) {
@@ -170,10 +316,8 @@ wss.on('connection', (ws) => {
                             
                             console.log(`${joiner.customName || joiner.userName} присоединился к комнате ${data.roomId}`);
                             
-                            // Отправляем список пользователей в комнате
                             sendRoomUserList(clientId, data.roomId);
                             
-                            // Уведомляем других в комнате
                             broadcastToRoom(data.roomId, {
                                 type: 'user-joined',
                                 userId: clientId,
@@ -195,16 +339,13 @@ wss.on('connection', (ws) => {
         
         clients.delete(clientId);
         
-        // Удаляем из комнаты
         if (userRoomId && rooms.has(userRoomId)) {
             rooms.get(userRoomId).delete(clientId);
             
-            // Если комната пуста, удаляем её
             if (rooms.get(userRoomId).size === 0) {
                 rooms.delete(userRoomId);
                 console.log(`Комната ${userRoomId} удалена (пустая)`);
             } else {
-                // Уведомляем оставшихся в комнате
                 broadcastToRoom(userRoomId, {
                     type: 'user-left',
                     userId: clientId,
@@ -279,10 +420,32 @@ function sendRoomUserList(clientId, roomId) {
     }));
 }
 
+// Установка webhook для бота
+async function setWebhook() {
+    const webhookUrl = 'https://pozvonok.onrender.com/webhook/' + BOT_TOKEN;
+    
+    try {
+        const response = await fetch(`${TELEGRAM_API}/setWebhook`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: webhookUrl })
+        });
+        
+        const result = await response.json();
+        console.log('Webhook установлен:', result);
+    } catch (error) {
+        console.error('Ошибка установки webhook:', error);
+    }
+}
+
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 
 server.listen(PORT, HOST, () => {
     console.log(`Сервер запущен на http://${HOST}:${PORT}`);
+    
+    // Устанавливаем webhook при запуске
+    if (process.env.NODE_ENV === 'production') {
+        setTimeout(() => setWebhook(), 2000);
+    }
 });
-
