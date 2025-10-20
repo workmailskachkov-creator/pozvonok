@@ -352,18 +352,106 @@
             }
         });
         
-        function inviteContacts() {
+        async function inviteContacts() {
             if (!inviteLink) {
                 tg.showAlert('Пригласительная ссылка еще не готова. Подождите немного.');
                 return;
             }
             
-            // Формируем сообщение для отправки
-            const message = `🎙️ Приглашаю вас в видеоконференцию Pozvonok!\n\nНажмите на ссылку для присоединения:\n${inviteLink}`;
+            // Загружаем список уже приглашенных пользователей из CloudStorage
+            tg.CloudStorage.getItems(['invited_users_' + currentRoomId], (error, values) => {
+                let invitedUsers = [];
+                
+                if (!error && values['invited_users_' + currentRoomId]) {
+                    try {
+                        invitedUsers = JSON.parse(values['invited_users_' + currentRoomId]);
+                    } catch (e) {
+                        invitedUsers = [];
+                    }
+                }
+                
+                // Показываем список или сразу шеринг
+                if (invitedUsers.length > 0) {
+                    showInviteOptions(invitedUsers);
+                } else {
+                    openContactPicker();
+                }
+            });
+        }
+        
+        function showInviteOptions(invitedUsers) {
+            // Формируем список приглашенных
+            let message = 'Ранее приглашенные:\n';
+            invitedUsers.slice(0, 5).forEach((user, idx) => {
+                message += `${idx + 1}. ${user.userName}\n`;
+            });
             
+            const buttons = [
+                {id: 'contacts', type: 'default', text: '📱 Выбрать из контактов'},
+                {id: 'share', type: 'default', text: '📤 Поделиться ссылкой'}
+            ];
+            
+            // Добавляем кнопки для повторной отправки
+            invitedUsers.slice(0, 3).forEach((user, idx) => {
+                buttons.unshift({
+                    id: `reinvite_${idx}`, 
+                    type: 'default', 
+                    text: `↗️ ${user.userName}`
+                });
+            });
+            
+            tg.showPopup({
+                title: 'Пригласить участников',
+                message: message,
+                buttons: buttons
+            }, (buttonId) => {
+                if (buttonId === 'contacts') {
+                    openContactPicker();
+                } else if (buttonId === 'share') {
+                    shareLink();
+                } else if (buttonId.startsWith('reinvite_')) {
+                    const idx = parseInt(buttonId.split('_')[1]);
+                    const user = invitedUsers[idx];
+                    sendDirectInvite(user);
+                }
+            });
+        }
+        
+        function openContactPicker() {
             // Открываем выбор чата для отправки
             const url = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent('🎙️ Приглашаю в видеоконференцию Pozvonok!')}`;
             tg.openTelegramLink(url);
+        }
+        
+        function shareLink() {
+            openContactPicker();
+        }
+        
+        async function sendDirectInvite(user) {
+            // Отправляем приглашение напрямую через бота
+            try {
+                const response = await fetch('/api/invite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: user.userId,
+                        userName: tgNameInput.value,
+                        roomId: currentRoomId,
+                        inviteLink: inviteLink
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    tg.showAlert(`✅ Приглашение отправлено ${user.userName}!`);
+                } else {
+                    tg.showAlert('Ошибка отправки приглашения');
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                tg.showAlert('Ошибка отправки');
+            }
         }
         
         // Кнопка микрофона через HapticFeedback
