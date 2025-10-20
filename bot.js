@@ -90,6 +90,8 @@ app.post(`/webhook/${BOT_TOKEN}`, async (req, res) => {
         const text = update.message.text;
         
         if (text === '/start') {
+            console.log('Получена команда /start от:', chatId);
+            
             // Приветственное сообщение
             const welcomeMessage = `🎙️ Добро пожаловать в Pozvonok!
 
@@ -99,7 +101,7 @@ app.post(`/webhook/${BOT_TOKEN}`, async (req, res) => {
 
 ⚡ Это позволит отличать обычные сообщения в Telegram от приглашений в конференцию!`;
             
-            await fetch(`${TELEGRAM_API}/sendMessage`, {
+            const welcomeRes = await fetch(`${TELEGRAM_API}/sendMessage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -107,6 +109,8 @@ app.post(`/webhook/${BOT_TOKEN}`, async (req, res) => {
                     text: welcomeMessage
                 })
             });
+            
+            console.log('Приветственное сообщение отправлено:', await welcomeRes.json());
             
             // Отправляем мелодию сразу
             setTimeout(async () => {
@@ -129,19 +133,23 @@ app.post(`/webhook/${BOT_TOKEN}`, async (req, res) => {
 
 ✅ После установки откройте Pozvonok ↓`;
                 
-                // Отправляем аудио файл
-                const formData = new URLSearchParams();
-                formData.append('chat_id', chatId);
-                formData.append('audio', 'https://pozvonok.onrender.com/ringtone.mp3');
-                formData.append('caption', instructionText);
-                formData.append('title', 'Мелодия звонка Pozvonok');
-                formData.append('performer', 'Pozvonok');
+                console.log('Отправляем аудио файл...');
                 
-                await fetch(`${TELEGRAM_API}/sendAudio`, {
+                // Отправляем аудио файл через URL (правильный метод)
+                const audioRes = await fetch(`${TELEGRAM_API}/sendAudio`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: formData.toString()
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chat_id: chatId,
+                        audio: 'https://pozvonok.onrender.com/ringtone.mp3',
+                        caption: instructionText,
+                        title: 'Мелодия звонка Pozvonok',
+                        performer: 'Pozvonok'
+                    })
                 });
+                
+                const audioResult = await audioRes.json();
+                console.log('Результат отправки аудио:', audioResult);
                 
                 // Отправляем кнопку открытия Mini App
                 const keyboard = {
@@ -150,7 +158,9 @@ app.post(`/webhook/${BOT_TOKEN}`, async (req, res) => {
                     ]
                 };
                 
-                await fetch(`${TELEGRAM_API}/sendMessage`, {
+                console.log('Отправляем кнопку открытия...');
+                
+                const btnRes = await fetch(`${TELEGRAM_API}/sendMessage`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -159,6 +169,8 @@ app.post(`/webhook/${BOT_TOKEN}`, async (req, res) => {
                         reply_markup: keyboard
                     })
                 });
+                
+                console.log('Кнопка отправлена:', await btnRes.json());
             }, 1000);
         }
     }
