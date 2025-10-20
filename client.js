@@ -421,7 +421,12 @@ function createPeerConnection(peerId) {
             audio.srcObject.addTrack(event.track);
             
             // Применяем текущий режим динамика
-            audio.volume = isSpeakerMode ? 1.0 : 0.6;
+            audio.volume = isSpeakerMode ? 1.0 : 0.5;
+            
+            // Пытаемся установить аудио устройство если доступно
+            if (!isSpeakerMode && typeof audio.setSinkId === 'function') {
+                audio.setSinkId('default').catch(err => console.log('setSinkId error:', err));
+            }
         } else if (event.track.kind === 'video') {
             let video = document.getElementById(`video-${peerId}`);
             if (!video) {
@@ -839,22 +844,46 @@ function openChatInput() {
     chatInput.focus();
 }
 
-function toggleSpeaker() {
+async function toggleSpeaker() {
     isSpeakerMode = !isSpeakerMode;
     
-    // Изменяем громкость всех audio элементов
     const audioElements = document.querySelectorAll('audio');
-    audioElements.forEach(audio => {
-        if (isSpeakerMode) {
-            // Громкая связь - максимальная громкость
-            audio.volume = 1.0;
-        } else {
-            // Обычный режим - средняя громкость
-            audio.volume = 0.6;
-        }
-    });
     
-    console.log('Режим динамика:', isSpeakerMode ? 'Громкая связь' : 'Обычный');
+    if (isSpeakerMode) {
+        // Громкая связь - максимальная громкость
+        audioElements.forEach(audio => {
+            audio.volume = 1.0;
+            
+            // Пытаемся включить громкую связь через setSinkId (если поддерживается)
+            if (typeof audio.setSinkId === 'function') {
+                navigator.mediaDevices.enumerateDevices().then(devices => {
+                    const speaker = devices.find(device => 
+                        device.kind === 'audiooutput' && 
+                        device.label.toLowerCase().includes('speaker')
+                    );
+                    if (speaker) {
+                        audio.setSinkId(speaker.deviceId).catch(err => {
+                            console.log('setSinkId не поддерживается:', err);
+                        });
+                    }
+                });
+            }
+        });
+    } else {
+        // Обычный режим (ближе к телефонному динамику)
+        audioElements.forEach(audio => {
+            audio.volume = 0.5;
+            
+            // Пытаемся переключить на телефонный динамик
+            if (typeof audio.setSinkId === 'function') {
+                audio.setSinkId('default').catch(err => {
+                    console.log('setSinkId не поддерживается:', err);
+                });
+            }
+        });
+    }
+    
+    console.log('Режим динамика:', isSpeakerMode ? 'Громкая связь (100%)' : 'Обычный (50%)');
     
     // Уведомляем родительское окно (Telegram) об изменении
     if (window.parent !== window) {

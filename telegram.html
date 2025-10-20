@@ -68,10 +68,61 @@
         
         #conferenceFrame {
             width: 100%;
-            height: calc(100vh - 200px);
+            height: calc(100vh - 130px);
             border: none;
-            border-radius: 16px;
-            margin-top: 20px;
+        }
+        
+        .tg-controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(10, 10, 10, 0.98);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(138, 43, 226, 0.3);
+            padding: 12px 16px;
+            display: none;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: space-around;
+            z-index: 9999;
+        }
+        
+        .tg-control-btn {
+            flex: 0 0 calc(16.666% - 8px);
+            min-width: 50px;
+            height: 50px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            color: white;
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .tg-control-btn:active {
+            transform: scale(0.9);
+            background: #2a2a2a;
+        }
+        
+        .tg-control-btn.active {
+            background: #fff;
+            color: #000;
+        }
+        
+        .tg-control-btn.red {
+            background: #dc143c;
+            border-color: #dc143c;
+        }
+        
+        .tg-control-btn.purple {
+            background: #8a2be2;
+            border-color: #8a2be2;
         }
     </style>
 </head>
@@ -87,6 +138,15 @@
             <button id="resetNameBtn" style="margin-top: 10px; padding: 10px; background: #666; color: white; border: none; border-radius: 8px; width: 100%; font-size: 12px;">Сбросить сохраненное имя</button>
         </div>
         <iframe id="conferenceFrame" style="display: none;"></iframe>
+    </div>
+    
+    <div class="tg-controls" id="tgControls">
+        <button class="tg-control-btn" id="btnMic" title="Микрофон">🎤</button>
+        <button class="tg-control-btn" id="btnCamera" title="Камера">📹</button>
+        <button class="tg-control-btn active" id="btnSpeaker" title="Динамик">🔊</button>
+        <button class="tg-control-btn" id="btnChat" title="Написать">✏️</button>
+        <button class="tg-control-btn purple" id="btnInvite" title="Пригласить" style="display: none;">📱</button>
+        <button class="tg-control-btn red" id="btnLeave" title="Завершить">📞</button>
     </div>
 
     <script>
@@ -183,36 +243,79 @@
             console.log('Сохраненного имени нет, показываем форму');
         }
         
-        function setupTelegramButtons() {
-            // Главная кнопка - Завершить звонок
-            tg.MainButton.setText('📞');
-            tg.MainButton.color = '#dc143c';
-            tg.MainButton.onClick(() => {
-                // Отправляем сигнал в iframe о завершении
-                conferenceFrame.contentWindow.postMessage({ type: 'leave-conference' }, '*');
-                setTimeout(() => tg.close(), 500);
-            });
-            tg.MainButton.show();
-            
-            // Настраиваем кнопки через BackButton и другие
-            setupControlButtons();
-        }
-        
         let micEnabled = true;
         let cameraEnabled = false;
-        let chatInputOpen = false;
+        let speakerEnabled = true;
         
-        function setupControlButtons() {
-            // Используем SettingsButton для камеры
-            tg.SettingsButton.onClick(() => {
-                cameraEnabled = !cameraEnabled;
-                conferenceFrame.contentWindow.postMessage({ 
-                    type: 'toggle-video'
-                }, '*');
+        function setupTelegramButtons() {
+            // Показываем панель управления
+            const tgControls = document.getElementById('tgControls');
+            tgControls.style.display = 'flex';
+            
+            // Микрофон
+            document.getElementById('btnMic').addEventListener('click', () => {
+                micEnabled = !micEnabled;
+                conferenceFrame.contentWindow.postMessage({ type: 'toggle-mute' }, '*');
+                tg.HapticFeedback.impactOccurred('medium');
                 
-                tg.showAlert(cameraEnabled ? '📹 Камера включена' : '📷 Камера выключена');
+                const btn = document.getElementById('btnMic');
+                if (micEnabled) {
+                    btn.textContent = '🎤';
+                    btn.classList.remove('active');
+                } else {
+                    btn.textContent = '🔇';
+                    btn.style.background = '#dc143c';
+                }
             });
-            tg.SettingsButton.show();
+            
+            // Камера
+            document.getElementById('btnCamera').addEventListener('click', () => {
+                cameraEnabled = !cameraEnabled;
+                conferenceFrame.contentWindow.postMessage({ type: 'toggle-video' }, '*');
+                tg.HapticFeedback.impactOccurred('medium');
+                
+                const btn = document.getElementById('btnCamera');
+                if (cameraEnabled) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            // Динамик
+            document.getElementById('btnSpeaker').addEventListener('click', () => {
+                speakerEnabled = !speakerEnabled;
+                conferenceFrame.contentWindow.postMessage({ type: 'toggle-speaker' }, '*');
+                tg.HapticFeedback.impactOccurred('medium');
+                
+                const btn = document.getElementById('btnSpeaker');
+                if (speakerEnabled) {
+                    btn.textContent = '🔊';
+                    btn.classList.add('active');
+                } else {
+                    btn.textContent = '🔉';
+                    btn.classList.remove('active');
+                }
+            });
+            
+            // Написать
+            document.getElementById('btnChat').addEventListener('click', () => {
+                conferenceFrame.contentWindow.postMessage({ type: 'open-chat-input' }, '*');
+                tg.HapticFeedback.impactOccurred('light');
+            });
+            
+            // Пригласить
+            document.getElementById('btnInvite').addEventListener('click', () => {
+                inviteContacts();
+                tg.HapticFeedback.impactOccurred('light');
+            });
+            
+            // Завершить
+            document.getElementById('btnLeave').addEventListener('click', () => {
+                conferenceFrame.contentWindow.postMessage({ type: 'leave-conference' }, '*');
+                tg.HapticFeedback.impactOccurred('heavy');
+                setTimeout(() => tg.close(), 300);
+            });
         }
         
         // Слушаем события от iframe
@@ -224,13 +327,13 @@
                     inviteLink = data.link;
                     currentRoomId = data.roomId;
                     
-                    // Показываем кнопку приглашения
+                    // Показываем кнопку приглашения (только для создателя)
                     const urlParams = new URLSearchParams(window.location.search);
-                    if (!urlParams.get('room')) {
-                        tg.SecondaryButton.setText('📱');
-                        tg.SecondaryButton.color = '#8a2be2';
-                        tg.SecondaryButton.onClick(inviteContacts);
-                        tg.SecondaryButton.show();
+                    if (!urlParams.get('room') && !tg.initDataUnsafe?.start_param) {
+                        const btnInvite = document.getElementById('btnInvite');
+                        if (btnInvite) {
+                            btnInvite.style.display = 'flex';
+                        }
                     }
                     break;
                     
@@ -268,58 +371,6 @@
         let cameraButton = null;
         let chatButton = null;
         
-        // Создаем дополнительные кнопки через API
-        setTimeout(() => {
-            // Telegram API ограничен в кнопках, используем BackButton для дополнительного функционала
-            
-            // Показываем popup кнопок при долгом нажатии на MainButton
-            tg.onEvent('mainButtonClicked', () => {
-                showControlsPopup();
-            });
-        }, 1000);
-        
-        let currentSpeakerMode = true; // true = громкая связь
-        
-        function showControlsPopup() {
-            const speakerText = currentSpeakerMode ? '🔊 Громкая связь' : '🔉 Обычный режим';
-            
-            tg.showPopup({
-                title: 'Управление',
-                message: 'Выберите действие:',
-                buttons: [
-                    {id: 'mic', type: 'default', text: '🎤 Микрофон'},
-                    {id: 'camera', type: 'default', text: '📹 Камера'},
-                    {id: 'speaker', type: 'default', text: speakerText},
-                    {id: 'chat', type: 'default', text: '✏️ Написать'},
-                    {id: 'leave', type: 'destructive', text: '📞 Завершить'}
-                ]
-            }, (buttonId) => {
-                switch(buttonId) {
-                    case 'mic':
-                        conferenceFrame.contentWindow.postMessage({ type: 'toggle-mute' }, '*');
-                        tg.HapticFeedback.impactOccurred('medium');
-                        break;
-                    case 'camera':
-                        conferenceFrame.contentWindow.postMessage({ type: 'toggle-video' }, '*');
-                        tg.HapticFeedback.impactOccurred('medium');
-                        break;
-                    case 'speaker':
-                        currentSpeakerMode = !currentSpeakerMode;
-                        conferenceFrame.contentWindow.postMessage({ type: 'toggle-speaker' }, '*');
-                        tg.HapticFeedback.impactOccurred('medium');
-                        const modeText = currentSpeakerMode ? 'Громкая связь включена 🔊' : 'Обычный режим включен 🔉';
-                        tg.showAlert(modeText);
-                        break;
-                    case 'chat':
-                        conferenceFrame.contentWindow.postMessage({ type: 'open-chat-input' }, '*');
-                        break;
-                    case 'leave':
-                        conferenceFrame.contentWindow.postMessage({ type: 'leave-conference' }, '*');
-                        setTimeout(() => tg.close(), 500);
-                        break;
-                }
-            });
-        }
         
         tgNameInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
