@@ -8,6 +8,7 @@ let localVideoStream;
 let peerConnections = new Map();
 let isMuted = false;
 let isVideoEnabled = false;
+let isSpeakerMode = true; // Громкая связь по умолчанию
 let users = new Map();
 let audioContext;
 let analyser;
@@ -418,6 +419,9 @@ function createPeerConnection(peerId) {
                 audio.srcObject = new MediaStream();
             }
             audio.srcObject.addTrack(event.track);
+            
+            // Применяем текущий режим динамика
+            audio.volume = isSpeakerMode ? 1.0 : 0.6;
         } else if (event.track.kind === 'video') {
             let video = document.getElementById(`video-${peerId}`);
             if (!video) {
@@ -835,6 +839,32 @@ function openChatInput() {
     chatInput.focus();
 }
 
+function toggleSpeaker() {
+    isSpeakerMode = !isSpeakerMode;
+    
+    // Изменяем громкость всех audio элементов
+    const audioElements = document.querySelectorAll('audio');
+    audioElements.forEach(audio => {
+        if (isSpeakerMode) {
+            // Громкая связь - максимальная громкость
+            audio.volume = 1.0;
+        } else {
+            // Обычный режим - средняя громкость
+            audio.volume = 0.6;
+        }
+    });
+    
+    console.log('Режим динамика:', isSpeakerMode ? 'Громкая связь' : 'Обычный');
+    
+    // Уведомляем родительское окно (Telegram) об изменении
+    if (window.parent !== window) {
+        window.parent.postMessage({
+            type: 'speaker-changed',
+            speakerMode: isSpeakerMode
+        }, '*');
+    }
+}
+
 // Event listeners
 joinBtn.addEventListener('click', joinConference);
 leaveBtn.addEventListener('click', leaveConference);
@@ -996,6 +1026,9 @@ window.addEventListener('DOMContentLoaded', () => {
                     break;
                 case 'open-chat-input':
                     openChatInput();
+                    break;
+                case 'toggle-speaker':
+                    toggleSpeaker();
                     break;
             }
         });

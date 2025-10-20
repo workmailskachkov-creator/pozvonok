@@ -242,6 +242,10 @@
                 case 'chat-opened':
                     // Чат открыт - показываем кнопку для ввода
                     break;
+                    
+                case 'speaker-changed':
+                    currentSpeakerMode = event.data.speakerMode;
+                    break;
             }
         });
         
@@ -274,13 +278,18 @@
             });
         }, 1000);
         
+        let currentSpeakerMode = true; // true = громкая связь
+        
         function showControlsPopup() {
+            const speakerText = currentSpeakerMode ? '🔊 Громкая связь' : '🔉 Обычный режим';
+            
             tg.showPopup({
                 title: 'Управление',
                 message: 'Выберите действие:',
                 buttons: [
                     {id: 'mic', type: 'default', text: '🎤 Микрофон'},
                     {id: 'camera', type: 'default', text: '📹 Камера'},
+                    {id: 'speaker', type: 'default', text: speakerText},
                     {id: 'chat', type: 'default', text: '✏️ Написать'},
                     {id: 'leave', type: 'destructive', text: '📞 Завершить'}
                 ]
@@ -288,9 +297,18 @@
                 switch(buttonId) {
                     case 'mic':
                         conferenceFrame.contentWindow.postMessage({ type: 'toggle-mute' }, '*');
+                        tg.HapticFeedback.impactOccurred('medium');
                         break;
                     case 'camera':
                         conferenceFrame.contentWindow.postMessage({ type: 'toggle-video' }, '*');
+                        tg.HapticFeedback.impactOccurred('medium');
+                        break;
+                    case 'speaker':
+                        currentSpeakerMode = !currentSpeakerMode;
+                        conferenceFrame.contentWindow.postMessage({ type: 'toggle-speaker' }, '*');
+                        tg.HapticFeedback.impactOccurred('medium');
+                        const modeText = currentSpeakerMode ? 'Громкая связь включена 🔊' : 'Обычный режим включен 🔉';
+                        tg.showAlert(modeText);
                         break;
                     case 'chat':
                         conferenceFrame.contentWindow.postMessage({ type: 'open-chat-input' }, '*');
