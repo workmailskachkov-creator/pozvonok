@@ -145,7 +145,7 @@
         <button class="tg-control-btn" id="btnCamera" title="Камера">📹</button>
         <button class="tg-control-btn active" id="btnSpeaker" title="Динамик">🔊</button>
         <button class="tg-control-btn" id="btnChat" title="Написать">✏️</button>
-        <button class="tg-control-btn purple" id="btnInvite" title="Пригласить" style="display: none;">📱</button>
+        <button class="tg-control-btn purple" id="btnInvite" title="Пригласить">📱</button>
         <button class="tg-control-btn red" id="btnLeave" title="Завершить">📞</button>
     </div>
 
@@ -312,15 +312,8 @@
                 case 'invite-link':
                     inviteLink = data.link;
                     currentRoomId = data.roomId;
-                    
-                    // Показываем кнопку приглашения (только для создателя)
-                    const urlParams = new URLSearchParams(window.location.search);
-                    if (!urlParams.get('room') && !tg.initDataUnsafe?.start_param) {
-                        const btnInvite = document.getElementById('btnInvite');
-                        if (btnInvite) {
-                            btnInvite.style.display = 'flex';
-                        }
-                    }
+                    console.log('Получена invite-link:', inviteLink);
+                    console.log('Кнопка приглашения готова к работе');
                     break;
                     
                 case 'request-invite-contacts':
