@@ -82,8 +82,9 @@
     
     <div class="tg-container">
         <div id="nameEntry">
-            <input type="text" id="tgNameInput" class="tg-name-input" placeholder="Введите ваше имя..." />
+            <input type="text" id="tgNameInput" class="tg-name-input" placeholder="Введите ваше имя..." autocomplete="off" />
             <button id="tgJoinBtn" class="tg-join-btn">Присоединиться</button>
+            <button id="resetNameBtn" style="margin-top: 10px; padding: 10px; background: #666; color: white; border: none; border-radius: 8px; width: 100%; font-size: 12px;">Сбросить сохраненное имя</button>
         </div>
         <iframe id="conferenceFrame" style="display: none;"></iframe>
     </div>
@@ -117,6 +118,8 @@
         }
         
         function joinWithName(userName) {
+            console.log('joinWithName вызвана с именем:', userName);
+            
             // Сохраняем имя для последующих использований
             localStorage.setItem('pozvonok_username', userName);
             
@@ -130,6 +133,7 @@
                 // Fallback на URL параметр
                 const urlParams = new URLSearchParams(window.location.search);
                 roomId = urlParams.get('room') || '';
+                console.log('Room ID из URL:', roomId);
             }
             currentRoomId = roomId;
             
@@ -140,6 +144,8 @@
             }
             frameUrl += `tg=1&name=${encodeURIComponent(userName)}`;
             
+            console.log('Загружаем iframe:', frameUrl);
+            
             // Скрываем форму ввода имени, показываем iframe
             nameEntry.style.display = 'none';
             conferenceFrame.style.display = 'block';
@@ -149,19 +155,7 @@
             setupTelegramButtons();
         }
         
-        // Проверяем сохраненное имя при загрузке
-        const savedName = localStorage.getItem('pozvonok_username');
-        
-        if (savedName) {
-            // Имя уже есть - автоматически присоединяемся
-            tgNameInput.value = savedName;
-            
-            // Задержка для инициализации Telegram SDK
-            setTimeout(() => {
-                joinWithName(savedName);
-            }, 300);
-        }
-        
+        // Добавляем обработчик кнопки присоединиться
         tgJoinBtn.addEventListener('click', () => {
             const userName = tgNameInput.value.trim();
             if (!userName) {
@@ -169,8 +163,25 @@
                 return;
             }
             
+            console.log('Присоединение с именем:', userName);
             joinWithName(userName);
         });
+        
+        // Проверяем сохраненное имя при загрузке
+        const savedName = localStorage.getItem('pozvonok_username');
+        
+        if (savedName) {
+            console.log('Найдено сохраненное имя:', savedName);
+            // Имя уже есть - автоматически присоединяемся
+            tgNameInput.value = savedName;
+            
+            // Задержка для инициализации Telegram SDK
+            setTimeout(() => {
+                joinWithName(savedName);
+            }, 500);
+        } else {
+            console.log('Сохраненного имени нет, показываем форму');
+        }
         
         function setupTelegramButtons() {
             // Главная кнопка - Завершить звонок
@@ -294,9 +305,22 @@
         
         tgNameInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
+                e.preventDefault();
                 tgJoinBtn.click();
             }
         });
+        
+        // Кнопка сброса имени (для отладки)
+        document.getElementById('resetNameBtn').addEventListener('click', () => {
+            localStorage.removeItem('pozvonok_username');
+            tgNameInput.value = '';
+            tg.showAlert('Имя сброшено! Перезапустите Mini App.');
+        });
+        
+        // Дебаг лог
+        console.log('Telegram Mini App инициализирован');
+        console.log('initDataUnsafe:', tg.initDataUnsafe);
+        console.log('savedName:', savedName);
     </script>
 </body>
 </html>
