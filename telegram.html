@@ -321,13 +321,21 @@
         // Слушаем события от iframe
         window.addEventListener('message', (event) => {
             const data = event.data;
+            console.log('📨 Получено сообщение от iframe:', data.type, data);
             
             switch(data.type) {
                 case 'invite-link':
                     inviteLink = data.link;
                     currentRoomId = data.roomId;
-                    console.log('Получена invite-link:', inviteLink);
-                    console.log('Кнопка приглашения готова к работе');
+                    console.log('✅ Получена invite-link:', inviteLink);
+                    console.log('✅ currentRoomId установлен:', currentRoomId);
+                    
+                    // Показываем алерт для подтверждения
+                    tg.showPopup({
+                        title: '✅ Комната создана!',
+                        message: 'Теперь можете пригласить участников',
+                        buttons: [{type: 'ok'}]
+                    });
                     break;
                     
                 case 'request-invite-contacts':
@@ -347,14 +355,25 @@
         
         async function inviteContacts() {
             console.log('inviteContacts вызвана');
+            console.log('inviteLink:', inviteLink);
+            console.log('currentRoomId:', currentRoomId);
+            
+            // Если ссылка не пришла из iframe, генерируем сами
+            if (!inviteLink && currentRoomId) {
+                inviteLink = `https://pozvonok.onrender.com/telegram?room=${currentRoomId}`;
+                console.log('Сгенерировали ссылку самостоятельно:', inviteLink);
+            }
             
             if (!inviteLink) {
-                console.error('inviteLink не установлена!');
-                tg.showAlert('Пригласительная ссылка еще не готова. Подождите немного.');
+                console.error('inviteLink не установлена и currentRoomId отсутствует!');
+                
+                // Отладочный алерт с деталями
+                const debugInfo = `DEBUG:\ninviteLink: ${inviteLink}\ncurrentRoomId: ${currentRoomId}\n\nСоздайте комнату сначала!`;
+                tg.showAlert(debugInfo);
                 return;
             }
             
-            console.log('Открываем выбор контактов напрямую');
+            console.log('Открываем шеринг с ссылкой:', inviteLink);
             
             // Упрощенная версия - сразу открываем шеринг контактов
             try {
