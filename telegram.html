@@ -215,12 +215,20 @@
             // Если roomId пустой, ждем создания комнаты от iframe
             if (!roomId) {
                 console.log('Ждем создания комнаты от iframe...');
+                
+                // Показываем прогресс
+                tg.showPopup({
+                    title: 'Создание комнаты...',
+                    message: 'Пожалуйста, подождите',
+                    buttons: [{type: 'ok'}]
+                });
+                
                 setTimeout(() => {
                     if (!currentRoomId) {
-                        console.error('Комната не была создана за 5 секунд!');
-                        tg.showAlert('Ошибка создания комнаты. Попробуйте еще раз.');
+                        console.error('Комната не была создана за 10 секунд!');
+                        tg.showAlert('Ошибка создания комнаты. Проверьте подключение к интернету и попробуйте еще раз.');
                     }
-                }, 5000);
+                }, 10000);
             }
         }
         
@@ -345,7 +353,7 @@
                     // Показываем алерт для подтверждения
                     tg.showPopup({
                         title: '✅ Комната создана!',
-                        message: 'Теперь можете пригласить участников',
+                        message: `ID комнаты: ${currentRoomId}\nТеперь можете пригласить участников`,
                         buttons: [{type: 'ok'}]
                     });
                     break;
@@ -353,6 +361,16 @@
                 case 'request-invite-contacts':
                     inviteLink = data.link;
                     inviteContacts();
+                    break;
+                    
+                case 'room-created-confirmation':
+                    currentRoomId = data.roomId;
+                    console.log('✅ Подтверждение создания комнаты:', currentRoomId);
+                    break;
+                    
+                case 'error':
+                    console.error('Ошибка от iframe:', data.message);
+                    tg.showAlert('Ошибка: ' + data.message);
                     break;
                     
                 case 'chat-opened':

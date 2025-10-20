@@ -96,11 +96,17 @@ function connectWebSocket() {
             
             case 'room-created':
                 roomId = data.roomId;
-                console.log('Комната создана:', roomId);
-                updateInviteLink();
+                console.log('✅ Комната создана:', roomId);
                 
-                // Отправляем ссылку в родительское окно ПОСЛЕ updateInviteLink
-                // updateInviteLink сам отправит правильную ссылку
+                // Отправляем подтверждение в родительское окно
+                if (window.parent !== window) {
+                    window.parent.postMessage({
+                        type: 'room-created-confirmation',
+                        roomId: roomId
+                    }, '*');
+                }
+                
+                updateInviteLink();
                 break;
             
             case 'user-list':
@@ -1091,9 +1097,21 @@ window.addEventListener('DOMContentLoaded', () => {
                         });
                     } else {
                         console.log('Создаем новую комнату...');
+                        
+                        // Проверяем подключение к WebSocket
+                        if (!ws || ws.readyState !== WebSocket.OPEN) {
+                            console.error('WebSocket не подключен!');
+                            window.parent.postMessage({
+                                type: 'error',
+                                message: 'Нет подключения к серверу'
+                            }, '*');
+                            return;
+                        }
+                        
                         sendMessage({
                             type: 'create-room'
                         });
+                        console.log('Отправлен запрос на создание комнаты');
                     }
                     
                     // Скрываем модал имени и показываем конференцию
