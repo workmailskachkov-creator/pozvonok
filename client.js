@@ -99,15 +99,8 @@ function connectWebSocket() {
                 console.log('Комната создана:', roomId);
                 updateInviteLink();
                 
-                // Отправляем ссылку в родительское окно (для Telegram Mini App)
-                if (window.parent !== window) {
-                    const link = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
-                    window.parent.postMessage({
-                        type: 'invite-link',
-                        link: link,
-                        roomId: roomId
-                    }, '*');
-                }
+                // Отправляем ссылку в родительское окно ПОСЛЕ updateInviteLink
+                // updateInviteLink сам отправит правильную ссылку
                 break;
             
             case 'user-list':
@@ -967,13 +960,19 @@ function updateInviteLink() {
             inviteTelegramBtn.style.display = 'block';
         }
         
-        // Отправляем ссылку в родительское окно для Telegram
-        if (window.parent !== window && isTelegram) {
+        console.log('updateInviteLink: roomId =', roomId, 'isTelegram =', isTelegram);
+        console.log('Сформированная ссылка:', link);
+        
+        // Отправляем ссылку в родительское окно для Telegram ВСЕГДА
+        if (window.parent !== window) {
+            console.log('Отправляем invite-link в родительское окно:', link);
             window.parent.postMessage({
                 type: 'invite-link',
                 link: link,
                 roomId: roomId
             }, '*');
+        } else {
+            console.log('window.parent === window, не отправляем');
         }
     }
 }
