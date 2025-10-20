@@ -871,15 +871,14 @@ function updateInviteLink() {
         const urlParams = new URLSearchParams(window.location.search);
         const isTelegram = urlParams.get('tg') === '1';
         
-        let baseUrl = window.location.origin;
         let link;
         
         if (isTelegram) {
-            // Для Telegram Mini App используем /telegram endpoint
-            link = `${baseUrl}/telegram?room=${roomId}`;
+            // Для Telegram Mini App используем Deep Link на бота
+            link = `https://t.me/pozuonok_bot/PoZvonok?startapp=${roomId}`;
         } else {
             // Для обычного веба
-            baseUrl += window.location.pathname;
+            const baseUrl = window.location.origin + window.location.pathname;
             link = `${baseUrl}?room=${roomId}`;
         }
         
@@ -888,6 +887,15 @@ function updateInviteLink() {
         // Показываем кнопку приглашения контактов только в Telegram
         if (isTelegram && inviteTelegramBtn) {
             inviteTelegramBtn.style.display = 'block';
+        }
+        
+        // Отправляем ссылку в родительское окно для Telegram
+        if (window.parent !== window && isTelegram) {
+            window.parent.postMessage({
+                type: 'invite-link',
+                link: link,
+                roomId: roomId
+            }, '*');
         }
     }
 }

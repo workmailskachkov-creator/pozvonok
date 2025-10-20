@@ -126,9 +126,17 @@
             // Сохраняем имя для последующих использований
             localStorage.setItem('pozvonok_username', userName);
             
-            // Получаем room ID из URL если есть
-            const urlParams = new URLSearchParams(window.location.search);
-            const roomId = urlParams.get('room') || '';
+            // Получаем room ID из startapp параметра (Deep Link) или URL
+            let roomId = '';
+            if (tg.initDataUnsafe?.start_param) {
+                // Telegram Deep Link: t.me/bot/app?startapp=ROOM_ID
+                roomId = tg.initDataUnsafe.start_param;
+                console.log('Room ID из Deep Link:', roomId);
+            } else {
+                // Fallback на URL параметр
+                const urlParams = new URLSearchParams(window.location.search);
+                roomId = urlParams.get('room') || '';
+            }
             currentRoomId = roomId;
             
             // Формируем URL для iframe
@@ -216,8 +224,11 @@
                 return;
             }
             
+            // Формируем сообщение для отправки
+            const message = `🎙️ Приглашаю вас в видеоконференцию Pozvonok!\n\nНажмите на ссылку для присоединения:\n${inviteLink}`;
+            
             // Открываем выбор чата для отправки
-            const url = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent('🎙️ Присоединяйтесь к видеоконференции Pozvonok!')}`;
+            const url = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent('🎙️ Приглашаю в видеоконференцию Pozvonok!')}`;
             tg.openTelegramLink(url);
         }
         
