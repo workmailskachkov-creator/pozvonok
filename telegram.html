@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Pozvonok - Telegram Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--tg-theme-bg-color, #0a0a0a);
+            color: var(--tg-theme-text-color, #fff);
+            min-height: 100vh;
+            padding: 0;
+            overflow-x: hidden;
+        }
+        
+        .tg-app-header {
+            padding: 20px;
+            background: rgba(138, 43, 226, 0.1);
+            border-bottom: 1px solid rgba(138, 43, 226, 0.3);
+            text-align: center;
+        }
+        
+        .tg-brand-name {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #8a2be2 0%, #00bfff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .tg-container {
+            padding: 20px;
+        }
+        
+        .tg-name-input {
+            width: 100%;
+            padding: 16px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(138, 43, 226, 0.3);
+            border-radius: 14px;
+            color: var(--tg-theme-text-color, white);
+            font-size: 16px;
+            outline: none;
+            margin-bottom: 16px;
+        }
+        
+        .tg-join-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #8a2be2 0%, #4b0082 100%);
+            border: 1px solid rgba(138, 43, 226, 0.5);
+            border-radius: 14px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(138, 43, 226, 0.4);
+        }
+        
+        #conferenceFrame {
+            width: 100%;
+            height: calc(100vh - 200px);
+            border: none;
+            border-radius: 16px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="tg-app-header">
+        <h1 class="tg-brand-name">Pozvonok</h1>
+    </div>
+    
+    <div class="tg-container">
+        <div id="nameEntry">
+            <input type="text" id="tgNameInput" class="tg-name-input" placeholder="Введите ваше имя..." />
+            <button id="tgJoinBtn" class="tg-join-btn">Присоединиться</button>
+        </div>
+        <iframe id="conferenceFrame" style="display: none;"></iframe>
+    </div>
+
+    <script>
+        // Инициализация Telegram WebApp
+        let tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        
+        // Применяем тему Telegram
+        document.body.style.backgroundColor = tg.themeParams.bg_color || '#0a0a0a';
+        
+        const tgNameInput = document.getElementById('tgNameInput');
+        const tgJoinBtn = document.getElementById('tgJoinBtn');
+        const nameEntry = document.getElementById('nameEntry');
+        const conferenceFrame = document.getElementById('conferenceFrame');
+        
+        let currentRoomId = null;
+        let inviteLink = null;
+        
+        // Получаем имя пользователя из Telegram или localStorage
+        const savedName = localStorage.getItem('pozvonok_username');
+        
+        if (savedName) {
+            tgNameInput.value = savedName;
+        } else if (tg.initDataUnsafe?.user) {
+            const user = tg.initDataUnsafe.user;
+            const defaultName = user.first_name + (user.last_name ? ' ' + user.last_name : '');
+            tgNameInput.value = defaultName;
+        }
+        
+        tgJoinBtn.addEventListener('click', () => {
+            const userName = tgNameInput.value.trim();
+            if (!userName) {
+                tg.showAlert('Введите имя!');
+                return;
+            }
+            
+            // Сохраняем имя для последующих использований
+            localStorage.setItem('pozvonok_username', userName);
+            
+            // Получаем room ID из URL если есть
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomId = urlParams.get('room') || '';
+            currentRoomId = roomId;
+            
+            // Формируем URL для iframe
+            let frameUrl = `${window.location.origin}/index.html?`;
+            if (roomId) {
+                frameUrl += `room=${roomId}&`;
+            }
+            frameUrl += `tg=1&name=${encodeURIComponent(userName)}`;
+            
+            // Скрываем форму ввода имени, показываем iframe
+            nameEntry.style.display = 'none';
+            conferenceFrame.style.display = 'block';
+            conferenceFrame.src = frameUrl;
+            
+            // Настраиваем кнопки Telegram
+            setupTelegramButtons();
+            
+            // Слушаем сообщения от iframe с пригласительной ссылкой
+            window.addEventListener('message', (event) => {
+                if (event.data.type === 'invite-link') {
+                    inviteLink = event.data.link;
+                    currentRoomId = event.data.roomId;
+                    
+                    // Показываем кнопку приглашения
+                    if (!urlParams.get('room')) {
+                        // Только для создателя конференции
+                        tg.SecondaryButton.setText('📱 Пригласить контакты');
+                        tg.SecondaryButton.color = '#8a2be2';
+                        tg.SecondaryButton.onClick(inviteContacts);
+                        tg.SecondaryButton.show();
+                    }
+                } else if (event.data.type === 'request-invite-contacts') {
+                    // Запрос от iframe на приглашение контактов
+                    inviteLink = event.data.link;
+                    inviteContacts();
+                }
+            });
+        });
+        
+        function setupTelegramButtons() {
+            // Главная кнопка - Завершить звонок
+            tg.MainButton.setText('Завершить звонок');
+            tg.MainButton.color = '#dc143c';
+            tg.MainButton.onClick(() => {
+                tg.close();
+            });
+            tg.MainButton.show();
+        }
+        
+        function inviteContacts() {
+            if (!inviteLink) {
+                tg.showAlert('Пригласительная ссылка еще не готова. Подождите немного.');
+                return;
+            }
+            
+            // Формируем текст приглашения
+            const inviteText = `🎙️ Присоединяйтесь к видеоконференции Pozvonok!\n\n${inviteLink}`;
+            
+            // Показываем попап с выбором действия
+            tg.showPopup({
+                title: 'Пригласить участников',
+                message: 'Выберите способ приглашения:',
+                buttons: [
+                    {id: 'share', type: 'default', text: '📤 Поделиться'},
+                    {id: 'copy', type: 'default', text: '📋 Скопировать'},
+                    {type: 'cancel'}
+                ]
+            }, (buttonId) => {
+                if (buttonId === 'share') {
+                    // Открываем выбор чата для отправки
+                    const url = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent('🎙️ Присоединяйтесь к видеоконференции Pozvonok!')}`;
+                    tg.openTelegramLink(url);
+                } else if (buttonId === 'copy') {
+                    // Копируем в буфер обмена
+                    navigator.clipboard.writeText(inviteLink).then(() => {
+                        tg.showAlert('Ссылка скопирована!');
+                    });
+                }
+            });
+        }
+        
+        tgNameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                tgJoinBtn.click();
+            }
+        });
+    </script>
+</body>
+</html>
+
