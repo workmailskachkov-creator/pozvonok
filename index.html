@@ -791,6 +791,33 @@
             transform: translateY(0);
             opacity: 1;
         }
+        
+        .chat-container.embedded {
+            position: relative;
+            bottom: auto;
+            right: auto;
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            min-height: 250px;
+            max-height: 350px;
+            margin-top: 20px;
+            transform: translateY(0);
+            opacity: 1;
+            border-radius: 16px;
+        }
+        
+        .chat-container.embedded .chat-header {
+            display: none;
+        }
+        
+        .chat-container.embedded .chat-input-container {
+            display: none;
+        }
+        
+        .chat-container.embedded.input-open .chat-input-container {
+            display: flex;
+        }
 
         .chat-header {
             display: flex;
@@ -969,22 +996,51 @@
         @media (max-width: 768px) {
             .video-grid {
                 grid-template-columns: 1fr;
+                gap: 10px;
             }
             
             .container {
-                padding: 20px;
+                padding: 10px;
+            }
+            
+            .video-item {
+                border-radius: 12px;
+            }
+            
+            .participants {
+                padding: 12px;
+                max-height: 200px;
             }
             
             .chat-container {
-                width: calc(100% - 40px);
-                height: 60vh;
-                bottom: 20px;
-                right: 20px;
+                width: calc(100% - 20px);
+                height: 50vh;
+                bottom: 10px;
+                right: 10px;
+            }
+            
+            .chat-container.embedded {
+                height: auto;
+                min-height: 200px;
+                max-height: 280px;
             }
             
             .toggle-chat-btn {
-                bottom: 20px;
-                right: 20px;
+                bottom: 10px;
+                right: 10px;
+                padding: 12px 20px;
+                font-size: 14px;
+            }
+            
+            .conference-controls {
+                gap: 12px;
+                padding: 12px;
+            }
+            
+            .control-btn {
+                width: 56px;
+                height: 56px;
+                font-size: 24px;
             }
         }
     </style>

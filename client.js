@@ -237,11 +237,30 @@ async function proceedToJoin() {
         console.log('Микрофон получен');
         updateStatus('active', 'В конференции');
         
+        const urlParams = new URLSearchParams(window.location.search);
+        const isTelegram = urlParams.get('tg') === '1';
+        
         // Скрываем кнопку присоединиться, показываем управление и участников
         joinBtn.style.display = 'none';
-        conferenceControls.style.display = 'flex';
+        
+        // В Telegram режиме скрываем кнопки управления и invite блок
+        if (isTelegram) {
+            conferenceControls.style.display = 'none';
+            inviteBlock.style.display = 'none';
+            toggleChatBtn.style.display = 'none'; // Скрываем плавающую кнопку чата
+            
+            // Показываем встроенный чат
+            const chatContainer = document.getElementById('chatContainer');
+            if (chatContainer) {
+                chatContainer.classList.add('embedded');
+                chatContainer.style.display = 'flex';
+            }
+        } else {
+            conferenceControls.style.display = 'flex';
+            inviteBlock.style.display = 'block';
+        }
+        
         participantsBlock.style.display = 'block';
-        inviteBlock.style.display = 'block';
         
         // Отправляем кастомное имя на сервер
         if (customUserName) {
@@ -730,6 +749,14 @@ function sendChatMessage() {
     });
     
     chatInput.value = '';
+    
+    // Скрываем input в Telegram режиме после отправки
+    const urlParams = new URLSearchParams(window.location.search);
+    const isTelegram = urlParams.get('tg') === '1';
+    if (isTelegram) {
+        const chatContainer = document.getElementById('chatContainer');
+        chatContainer.classList.remove('input-open');
+    }
 }
 
 function addChatMessage(userName, message, isOwn = false) {
@@ -781,6 +808,12 @@ function toggleChat() {
         badge.textContent = '0';
         chatInput.focus();
     }
+}
+
+function openChatInput() {
+    const chatContainer = document.getElementById('chatContainer');
+    chatContainer.classList.add('input-open');
+    chatInput.focus();
 }
 
 // Event listeners
@@ -909,7 +942,36 @@ window.addEventListener('DOMContentLoaded', () => {
             appHeader.style.display = 'none';
         }
         
-        document.body.style.paddingTop = '20px';
+        // Адаптация под мобилу для Telegram
+        document.body.style.paddingTop = '10px';
+        const container = document.querySelector('.container');
+        if (container) {
+            container.style.padding = '20px';
+            container.style.margin = '0';
+            container.style.maxWidth = '100%';
+            container.style.width = '100%';
+            container.style.borderRadius = '0';
+        }
+        
+        // Слушаем команды от родительского окна (Telegram)
+        window.addEventListener('message', (event) => {
+            const data = event.data;
+            
+            switch(data.type) {
+                case 'toggle-video':
+                    toggleVideo();
+                    break;
+                case 'toggle-mute':
+                    toggleMute();
+                    break;
+                case 'leave-conference':
+                    leaveConference();
+                    break;
+                case 'open-chat-input':
+                    openChatInput();
+                    break;
+            }
+        });
     } else {
         // Обычный веб - проверяем сохраненное имя
         const savedName = localStorage.getItem('pozvonok_username');

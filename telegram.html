@@ -146,37 +146,69 @@
             // Настраиваем кнопки Telegram
             setupTelegramButtons();
             
-            // Слушаем сообщения от iframe с пригласительной ссылкой
-            window.addEventListener('message', (event) => {
-                if (event.data.type === 'invite-link') {
-                    inviteLink = event.data.link;
-                    currentRoomId = event.data.roomId;
-                    
-                    // Показываем кнопку приглашения
-                    if (!urlParams.get('room')) {
-                        // Только для создателя конференции
-                        tg.SecondaryButton.setText('📱 Пригласить контакты');
-                        tg.SecondaryButton.color = '#8a2be2';
-                        tg.SecondaryButton.onClick(inviteContacts);
-                        tg.SecondaryButton.show();
-                    }
-                } else if (event.data.type === 'request-invite-contacts') {
-                    // Запрос от iframe на приглашение контактов
-                    inviteLink = event.data.link;
-                    inviteContacts();
-                }
-            });
         });
         
         function setupTelegramButtons() {
             // Главная кнопка - Завершить звонок
-            tg.MainButton.setText('Завершить звонок');
+            tg.MainButton.setText('📞');
             tg.MainButton.color = '#dc143c';
             tg.MainButton.onClick(() => {
-                tg.close();
+                // Отправляем сигнал в iframe о завершении
+                conferenceFrame.contentWindow.postMessage({ type: 'leave-conference' }, '*');
+                setTimeout(() => tg.close(), 500);
             });
             tg.MainButton.show();
+            
+            // Настраиваем кнопки через BackButton и другие
+            setupControlButtons();
         }
+        
+        let micEnabled = true;
+        let cameraEnabled = false;
+        let chatInputOpen = false;
+        
+        function setupControlButtons() {
+            // Используем SettingsButton для камеры
+            tg.SettingsButton.onClick(() => {
+                cameraEnabled = !cameraEnabled;
+                conferenceFrame.contentWindow.postMessage({ 
+                    type: 'toggle-video'
+                }, '*');
+                
+                tg.showAlert(cameraEnabled ? '📹 Камера включена' : '📷 Камера выключена');
+            });
+            tg.SettingsButton.show();
+        }
+        
+        // Слушаем события от iframe
+        window.addEventListener('message', (event) => {
+            const data = event.data;
+            
+            switch(data.type) {
+                case 'invite-link':
+                    inviteLink = data.link;
+                    currentRoomId = data.roomId;
+                    
+                    // Показываем кнопку приглашения
+                    const urlParams = new URLSearchParams(window.location.search);
+                    if (!urlParams.get('room')) {
+                        tg.SecondaryButton.setText('📱');
+                        tg.SecondaryButton.color = '#8a2be2';
+                        tg.SecondaryButton.onClick(inviteContacts);
+                        tg.SecondaryButton.show();
+                    }
+                    break;
+                    
+                case 'request-invite-contacts':
+                    inviteLink = data.link;
+                    inviteContacts();
+                    break;
+                    
+                case 'chat-opened':
+                    // Чат открыт - показываем кнопку для ввода
+                    break;
+            }
+        });
         
         function inviteContacts() {
             if (!inviteLink) {
@@ -184,28 +216,51 @@
                 return;
             }
             
-            // Формируем текст приглашения
-            const inviteText = `🎙️ Присоединяйтесь к видеоконференции Pozvonok!\n\n${inviteLink}`;
+            // Открываем выбор чата для отправки
+            const url = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent('🎙️ Присоединяйтесь к видеоконференции Pozvonok!')}`;
+            tg.openTelegramLink(url);
+        }
+        
+        // Кнопка микрофона через HapticFeedback
+        let micButton = null;
+        let cameraButton = null;
+        let chatButton = null;
+        
+        // Создаем дополнительные кнопки через API
+        setTimeout(() => {
+            // Telegram API ограничен в кнопках, используем BackButton для дополнительного функционала
             
-            // Показываем попап с выбором действия
+            // Показываем popup кнопок при долгом нажатии на MainButton
+            tg.onEvent('mainButtonClicked', () => {
+                showControlsPopup();
+            });
+        }, 1000);
+        
+        function showControlsPopup() {
             tg.showPopup({
-                title: 'Пригласить участников',
-                message: 'Выберите способ приглашения:',
+                title: 'Управление',
+                message: 'Выберите действие:',
                 buttons: [
-                    {id: 'share', type: 'default', text: '📤 Поделиться'},
-                    {id: 'copy', type: 'default', text: '📋 Скопировать'},
-                    {type: 'cancel'}
+                    {id: 'mic', type: 'default', text: '🎤 Микрофон'},
+                    {id: 'camera', type: 'default', text: '📹 Камера'},
+                    {id: 'chat', type: 'default', text: '✏️ Написать'},
+                    {id: 'leave', type: 'destructive', text: '📞 Завершить'}
                 ]
             }, (buttonId) => {
-                if (buttonId === 'share') {
-                    // Открываем выбор чата для отправки
-                    const url = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent('🎙️ Присоединяйтесь к видеоконференции Pozvonok!')}`;
-                    tg.openTelegramLink(url);
-                } else if (buttonId === 'copy') {
-                    // Копируем в буфер обмена
-                    navigator.clipboard.writeText(inviteLink).then(() => {
-                        tg.showAlert('Ссылка скопирована!');
-                    });
+                switch(buttonId) {
+                    case 'mic':
+                        conferenceFrame.contentWindow.postMessage({ type: 'toggle-mute' }, '*');
+                        break;
+                    case 'camera':
+                        conferenceFrame.contentWindow.postMessage({ type: 'toggle-video' }, '*');
+                        break;
+                    case 'chat':
+                        conferenceFrame.contentWindow.postMessage({ type: 'open-chat-input' }, '*');
+                        break;
+                    case 'leave':
+                        conferenceFrame.contentWindow.postMessage({ type: 'leave-conference' }, '*');
+                        setTimeout(() => tg.close(), 500);
+                        break;
                 }
             });
         }
