@@ -90,56 +90,79 @@ app.post(`/webhook/${BOT_TOKEN}`, async (req, res) => {
         const text = update.message.text;
         
         if (text === '/start') {
-            // Приветственное сообщение с предложением установить мелодию
-            const welcomeMessage = `🎙️ Добро пожаловать в Pozvonok!\n\nПремиум платформа для видео и аудио конференций.\n\n✨ Хотите установить мелодию звонка на уведомления от бота?`;
-            
-            const keyboard = {
-                inline_keyboard: [
-                    [{ text: '🔔 Установить мелодию звонка', callback_data: 'set_ringtone' }],
-                    [{ text: '▶️ Открыть Pozvonok', web_app: { url: 'https://pozvonok.onrender.com/telegram' } }]
-                ]
-            };
+            // Приветственное сообщение
+            const welcomeMessage = `🎙️ Добро пожаловать в Pozvonok!
+
+Премиум платформа для видео и аудио конференций.
+
+📞 Сейчас я отправлю вам специальную мелодию звонка для уведомлений от бота.
+
+⚡ Это позволит отличать обычные сообщения в Telegram от приглашений в конференцию!`;
             
             await fetch(`${TELEGRAM_API}/sendMessage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     chat_id: chatId,
-                    text: welcomeMessage,
-                    reply_markup: keyboard
-                })
-            });
-        }
-    }
-    
-    // Обработка callback от кнопки установки мелодии
-    if (update.callback_query) {
-        const chatId = update.callback_query.message.chat.id;
-        const data = update.callback_query.data;
-        
-        if (data === 'set_ringtone') {
-            // Отправляем аудио файл как мелодию
-            await fetch(`${TELEGRAM_API}/sendAudio`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    chat_id: chatId,
-                    audio: 'https://pozvonok.onrender.com/ringtone.mp3',
-                    caption: '🔔 Установите эту мелодию:\n\n1. Нажмите на файл\n2. Три точки (⋮) → "Использовать как рингтон"\n3. Выберите "Для уведомлений"\n\nИли:\nНастройки Telegram → Уведомления → Звук уведомлений → выберите этот файл'
+                    text: welcomeMessage
                 })
             });
             
-            // Отвечаем на callback
-            await fetch(`${TELEGRAM_API}/answerCallbackQuery`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    callback_query_id: update.callback_query.id,
-                    text: '✅ Мелодия отправлена!'
-                })
-            });
+            // Отправляем мелодию сразу
+            setTimeout(async () => {
+                const instructionText = `🔔 КАК УСТАНОВИТЬ МЕЛОДИЮ НА УВЕДОМЛЕНИЯ ОТ ЭТОГО БОТА:
+
+📱 НА ANDROID:
+1️⃣ Нажмите на аудиофайл выше и прослушайте
+2️⃣ Нажмите три точки (⋮) в углу
+3️⃣ Выберите "Использовать как рингтон"
+4️⃣ Выберите "Для уведомлений"
+
+📱 НА IPHONE:
+1️⃣ Нажмите на аудиофайл и прослушайте
+2️⃣ Нажмите "Поделиться" → "Сохранить в Файлы"
+3️⃣ Настройки Telegram → Уведомления и звуки
+4️⃣ Звук уведомлений → выберите сохраненный файл
+
+💡 ЗАЧЕМ ЭТО НУЖНО:
+Когда вас пригласят в видеоконференцию, вы услышите эту уникальную мелодию вместо обычного "дзинь" и сразу поймете, что это ЗВОНОК, а не просто сообщение!
+
+✅ После установки откройте Pozvonok ↓`;
+                
+                // Отправляем аудио файл
+                const formData = new URLSearchParams();
+                formData.append('chat_id', chatId);
+                formData.append('audio', 'https://pozvonok.onrender.com/ringtone.mp3');
+                formData.append('caption', instructionText);
+                formData.append('title', 'Мелодия звонка Pozvonok');
+                formData.append('performer', 'Pozvonok');
+                
+                await fetch(`${TELEGRAM_API}/sendAudio`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                });
+                
+                // Отправляем кнопку открытия Mini App
+                const keyboard = {
+                    inline_keyboard: [
+                        [{ text: '▶️ Открыть Pozvonok', web_app: { url: 'https://pozvonok.onrender.com/telegram' } }]
+                    ]
+                };
+                
+                await fetch(`${TELEGRAM_API}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chat_id: chatId,
+                        text: '👇 Нажмите кнопку ниже для запуска:',
+                        reply_markup: keyboard
+                    })
+                });
+            }, 1000);
         }
     }
+    
     
     res.sendStatus(200);
 });
