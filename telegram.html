@@ -234,9 +234,18 @@
         let speakerEnabled = true;
         
         function setupTelegramButtons() {
+            console.log('setupTelegramButtons вызвана!');
+            
             // Показываем панель управления
             const tgControls = document.getElementById('tgControls');
-            tgControls.style.display = 'flex';
+            console.log('tgControls элемент:', tgControls);
+            
+            if (tgControls) {
+                tgControls.style.display = 'flex';
+                console.log('Панель кнопок показана!');
+            } else {
+                console.error('tgControls не найден!');
+            }
             
             // Микрофон
             document.getElementById('btnMic').addEventListener('click', () => {
@@ -256,15 +265,19 @@
             
             // Камера
             document.getElementById('btnCamera').addEventListener('click', () => {
+                console.log('Кнопка камеры нажата, текущее состояние:', cameraEnabled);
                 cameraEnabled = !cameraEnabled;
+                console.log('Отправляем toggle-video в iframe');
                 conferenceFrame.contentWindow.postMessage({ type: 'toggle-video' }, '*');
                 tg.HapticFeedback.impactOccurred('medium');
                 
                 const btn = document.getElementById('btnCamera');
                 if (cameraEnabled) {
                     btn.classList.add('active');
+                    console.log('Камера включена');
                 } else {
                     btn.classList.remove('active');
+                    console.log('Камера выключена');
                 }
             });
             
