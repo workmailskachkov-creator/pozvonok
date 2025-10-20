@@ -166,15 +166,12 @@
         let currentRoomId = null;
         let inviteLink = null;
         
-        // Получаем имя пользователя из Telegram или localStorage
-        const savedName = localStorage.getItem('pozvonok_username');
-        
-        if (savedName) {
-            tgNameInput.value = savedName;
-        } else if (tg.initDataUnsafe?.user) {
+        // Получаем имя пользователя из Telegram (НЕ из localStorage!)
+        if (tg.initDataUnsafe?.user) {
             const user = tg.initDataUnsafe.user;
             const defaultName = user.first_name + (user.last_name ? ' ' + user.last_name : '');
             tgNameInput.value = defaultName;
+            console.log('Имя из Telegram профиля:', defaultName);
         }
         
         function joinWithName(userName) {
@@ -228,23 +225,9 @@
             joinWithName(userName);
         });
         
-        // ПОТОМ проверяем сохраненное имя при загрузке
-        const savedName = localStorage.getItem('pozvonok_username');
-        console.log('savedName при загрузке:', savedName);
-        
-        if (savedName) {
-            console.log('Найдено сохраненное имя:', savedName);
-            // Имя уже есть - автоматически присоединяемся
-            tgNameInput.value = savedName;
-            
-            // Задержка для инициализации Telegram SDK
-            setTimeout(() => {
-                console.log('Автовход с именем:', savedName);
-                joinWithName(savedName);
-            }, 800);
-        } else {
-            console.log('Сохраненного имени нет, ждем ввода');
-        }
+        // НЕ делаем автовход в telegram.html!
+        // Автовход будет в index.html через localStorage
+        console.log('Ждем нажатия кнопки Присоединиться');
         
         let micEnabled = true;
         let cameraEnabled = false;
