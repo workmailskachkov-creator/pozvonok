@@ -60,9 +60,17 @@ function connectWebSocket() {
     }
     
     ws.onopen = () => {
-        console.log('WebSocket подключен');
+        console.log('✅ WebSocket подключен успешно');
         updateStatus('connected', 'Подключено к серверу');
         joinBtn.disabled = false;
+        
+        // Уведомляем родительское окно о подключении
+        if (window.parent !== window) {
+            window.parent.postMessage({
+                type: 'websocket-connected',
+                status: 'connected'
+            }, '*');
+        }
         
         // Если есть roomId в URL, присоединяемся к комнате
         if (roomId) {
@@ -70,6 +78,27 @@ function connectWebSocket() {
                 type: 'join-room',
                 roomId: roomId
             });
+        }
+    };
+    
+    ws.onerror = (error) => {
+        console.error('❌ Ошибка WebSocket:', error);
+        if (window.parent !== window) {
+            window.parent.postMessage({
+                type: 'websocket-error',
+                error: 'Не удалось подключиться к серверу'
+            }, '*');
+        }
+    };
+    
+    ws.onclose = (event) => {
+        console.error('❌ WebSocket закрыт:', event.code, event.reason);
+        if (window.parent !== window) {
+            window.parent.postMessage({
+                type: 'websocket-closed',
+                code: event.code,
+                reason: event.reason
+            }, '*');
         }
     };
     
@@ -1134,6 +1163,22 @@ window.addEventListener('DOMContentLoaded', () => {
                     break;
                 case 'toggle-speaker':
                     toggleSpeaker();
+                    break;
+                    
+                case 'create-room-now':
+                    console.log('Получена команда create-room-now');
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        sendMessage({
+                            type: 'create-room'
+                        });
+                        console.log('Отправлен запрос на создание комнаты');
+                    } else {
+                        console.error('WebSocket не готов для создания комнаты');
+                        window.parent.postMessage({
+                            type: 'error',
+                            message: 'WebSocket не подключен'
+                        }, '*');
+                    }
                     break;
             }
         });

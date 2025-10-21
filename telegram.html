@@ -212,23 +212,42 @@
             // Настраиваем кнопки Telegram
             setupTelegramButtons();
             
+            // Ждем загрузки iframe и подключения WebSocket
+            let websocketReady = false;
+            let iframeReady = false;
+            
             // Если roomId пустой, ждем создания комнаты от iframe
             if (!roomId) {
-                console.log('Ждем создания комнаты от iframe...');
+                console.log('Ждем загрузки iframe и WebSocket...');
                 
                 // Показываем прогресс
                 tg.showPopup({
-                    title: 'Создание комнаты...',
-                    message: 'Пожалуйста, подождите',
+                    title: 'Подключение...',
+                    message: 'Ожидание соединения с сервером',
                     buttons: [{type: 'ok'}]
                 });
                 
+                // Проверяем готовность каждые 500ms
+                const checkReady = setInterval(() => {
+                    if (websocketReady && iframeReady) {
+                        clearInterval(checkReady);
+                        console.log('✅ iframe и WebSocket готовы, создаем комнату');
+                        
+                        // Отправляем команду создания комнаты
+                        conferenceFrame.contentWindow.postMessage({
+                            type: 'create-room-now'
+                        }, '*');
+                    }
+                }, 500);
+                
+                // Таймаут на 15 секунд
                 setTimeout(() => {
+                    clearInterval(checkReady);
                     if (!currentRoomId) {
-                        console.error('Комната не была создана за 10 секунд!');
+                        console.error('Комната не была создана за 15 секунд!');
                         tg.showAlert('Ошибка создания комнаты. Проверьте подключение к интернету и попробуйте еще раз.');
                     }
-                }, 10000);
+                }, 15000);
             }
         }
         
@@ -371,6 +390,21 @@
                 case 'error':
                     console.error('Ошибка от iframe:', data.message);
                     tg.showAlert('Ошибка: ' + data.message);
+                    break;
+                    
+                case 'websocket-connected':
+                    console.log('✅ WebSocket подключен в iframe');
+                    websocketReady = true;
+                    break;
+                    
+                case 'websocket-error':
+                    console.error('❌ Ошибка WebSocket:', data.error);
+                    tg.showAlert('Проблема с подключением: ' + data.error);
+                    break;
+                    
+                case 'websocket-closed':
+                    console.error('❌ WebSocket закрыт:', data.code, data.reason);
+                    tg.showAlert(`Соединение потеряно (код: ${data.code})`);
                     break;
                     
                 case 'chat-opened':
